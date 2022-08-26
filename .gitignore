@@ -8,3 +8,10 @@
 *.bak
 *.tmp
 
+
+## Intel Quartus build files ##
+
+gateware/**/build/
+gateware/**/db/
+gateware/**/incremental_db/
+gateware/**/*.pdf
