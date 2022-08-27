@@ -1,6 +1,63 @@
-hardware/hl/bom/* linguist-vendored
-hardware/hl/libs/* linguist-vendored
-hardware/hl/releases/* linguist-vendored
-hardware/hl/gerber/* linguist-vendored
-hardware/companions/* linguist-vendored
-gateware/bitfiles/* linguist-vendored
+#
+# .gitattributes
+#
+
+## GENERIC ##
+
+*							text=auto
+
+
+## Gateware (Intel Quartus Project & HDL Source) ##
+
+*.v							eol=lf
+*.sdc						eol=lf
+*.tcl						eol=lf
+*.qsf						eol=lf
+*.qpf						eol=lf
+*.rbf						binary
+
+
+## Text & Markup ##
+
+*.txt						eol=crlf
+*.md						eol=crlf diff=markdown
+*.mkdn						eol=crlf diff=markdown
+*.markdown					eol=crlf diff=markdown
+
+
+## Scripts ##
+
+*.sh						eol=lf
+*.bat						eol=crlf
+*.cmd						eol=crlf
+*.ps1						eol=crlf
+*.py						eol=lf diff=python
+Makefile					eol=lf
+Makefile.*					eol=lf
+*.makefile					eol=lf
+*.make						eol=lf
+*.mk						eol=lf
+
+
+## Source Code ##
+
+*.c							eol=lf diff=cpp
+*.h							eol=lf diff=cpp
+*.cpp						eol=lf diff=cpp
+*.hpp						eol=lf diff=cpp
+*.cxx						eol=lf diff=cpp
+*.hxx						eol=lf diff=cpp
+*.c++						eol=lf diff=cpp
+*.h++						eol=lf diff=cpp
+*.cc						eol=lf diff=cpp
+*.hh						eol=lf diff=cpp
+
+
+## Pre-existing Attributes ##
+
+hardware/hl/bom/*			linguist-vendored
+hardware/hl/libs/*			linguist-vendored
+hardware/hl/releases/*		linguist-vendored
+hardware/hl/gerber/*		linguist-vendored
+hardware/companions/*		linguist-vendored
+gateware/bitfiles/*			linguist-vendored
