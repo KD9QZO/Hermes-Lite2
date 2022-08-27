@@ -34,31 +34,35 @@
 
 
 // synopsys translate_off
-`timescale 1 ps / 1 ps
+`timescale 1ps/1ps
 // synopsys translate_on
-module square (
-	dataa,
-	result);
 
-	input	[15:0]  dataa;
-	output	[31:0]  result;
+module square(
+	dataa,
+	result
+);
+
+	input [15:0] dataa;
+	output [31:0] result;
 
 	wire [31:0] sub_wire0;
 	wire [31:0] result = sub_wire0[31:0];
 
-	altsquare	altsquare_component (
-				.data (dataa),
-				.result (sub_wire0),
-				.aclr (1'b0),
-				.clock (1'b1),
-				.ena (1'b1),
-				.sclr (1'b0));
+	altsquare altsquare_component(
+		.data(dataa),
+		.result(sub_wire0),
+		.aclr(1'b0),
+		.clock(1'b1),
+		.ena(1'b1),
+		.sclr(1'b0)
+	);
+
 	defparam
-		altsquare_component.data_width = 16,
-		altsquare_component.lpm_type = "ALTSQUARE",
-		altsquare_component.pipeline = 0,
-		altsquare_component.representation = "SIGNED",
-		altsquare_component.result_width = 32;
+			altsquare_component.data_width = 16,
+			altsquare_component.lpm_type = "ALTSQUARE",
+			altsquare_component.pipeline = 0,
+			altsquare_component.representation = "SIGNED",
+			altsquare_component.result_width = 32;
 
 
 endmodule

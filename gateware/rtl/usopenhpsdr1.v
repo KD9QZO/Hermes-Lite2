@@ -1,154 +1,164 @@
 
 // OpenHPSDR upstream (Card->PC) protocol packer
 
-module usopenhpsdr1 (
-  input                         clk                 ,
-  input                         have_ip             ,
-  input                         run                 ,
-  input                         wide_spectrum       ,
-  input                         idhermeslite        ,
-  input        [          47:0] mac                 ,
-  input                         discover_port       ,
-  input                         discover_rqst       ,
-  input                         udp_tx_enable       ,
-  output       [           1:0] udp_tx_request      ,
-  output       [           7:0] udp_tx_data         ,
-  output logic [          10:0] udp_tx_length         = 'd0,
-  input        [          11:0] bs_tdata            ,
-  output                        bs_tready           ,
-  input                         bs_tvalid           ,
-  input        [          23:0] us_tdata            ,
-  input                         us_tlast            ,
-  output                        us_tready           ,
-  input                         us_tvalid           ,
-  input        [TUSERWIDTH-1:0] us_tuser            ,
-  input        [          10:0] us_tlength          ,
-  // Command slave interface
-  input        [           5:0] cmd_addr            ,
-  input        [          31:0] cmd_data            ,
-  input                         cmd_rqst            ,
-  input        [          39:0] resp                ,
-  output logic                  resp_rqst             = 1'b0,
-  input                         stall_req           ,
-  output                        stall_ack           ,
-  input        [          31:0] static_ip           ,
-  input        [          15:0] alt_mac             ,
-  input        [           7:0] eeprom_config       ,
-  output logic                  watchdog_up           = 1'b0,
-  input                         ds_cmd_ptt          ,
-  input                         ds_pkt              ,
-  input                         ds_wait             ,
-  input                         usethasmi_send_more ,
-  input                         usethasmi_erase_done,
-  output                        usethasmi_ack       ,
-  input                         alt_resp_rqst       ,
-  input        [          31:0] resp_data           ,
-  input        [           7:0] resp_control        ,
-  input        [          11:0] temperature         ,
-  input        [          11:0] fwdpwr              ,
-  input        [          11:0] revpwr              ,
-  input        [          11:0] bias                ,
-  input        [           7:0] dsiq_status         ,
-  input                         master_link_running
+module usopenhpsdr1(
+	input                         clk                 ,
+	input                         have_ip             ,
+	input                         run                 ,
+	input                         wide_spectrum       ,
+	input                         idhermeslite        ,
+	input        [          47:0] mac                 ,
+	input                         discover_port       ,
+	input                         discover_rqst       ,
+	input                         udp_tx_enable       ,
+	output       [           1:0] udp_tx_request      ,
+	output       [           7:0] udp_tx_data         ,
+	output logic [          10:0] udp_tx_length         = 'd0,
+	input        [          11:0] bs_tdata            ,
+	output                        bs_tready           ,
+	input                         bs_tvalid           ,
+	input        [          23:0] us_tdata            ,
+	input                         us_tlast            ,
+	output                        us_tready           ,
+	input                         us_tvalid           ,
+	input        [TUSERWIDTH-1:0] us_tuser            ,
+	input        [          10:0] us_tlength          ,
+	// Command slave interface
+	input        [           5:0] cmd_addr            ,
+	input        [          31:0] cmd_data            ,
+	input                         cmd_rqst            ,
+	input        [          39:0] resp                ,
+	output logic                  resp_rqst             = 1'b0,
+	input                         stall_req           ,
+	output                        stall_ack           ,
+	input        [          31:0] static_ip           ,
+	input        [          15:0] alt_mac             ,
+	input        [           7:0] eeprom_config       ,
+	output logic                  watchdog_up           = 1'b0,
+	input                         ds_cmd_ptt          ,
+	input                         ds_pkt              ,
+	input                         ds_wait             ,
+	input                         usethasmi_send_more ,
+	input                         usethasmi_erase_done,
+	output                        usethasmi_ack       ,
+	input                         alt_resp_rqst       ,
+	input        [          31:0] resp_data           ,
+	input        [           7:0] resp_control        ,
+	input        [          11:0] temperature         ,
+	input        [          11:0] fwdpwr              ,
+	input        [          11:0] revpwr              ,
+	input        [          11:0] bias                ,
+	input        [           7:0] dsiq_status         ,
+	input                         master_link_running
 );
 
-parameter           NR = 8'h0;
-parameter           VERSION_MAJOR = 8'h0;
-parameter           VERSION_MINOR = 8'h0;
-parameter           BOARD = 5;
-parameter           BANDSCOPE_BITS = 2'b01; // See wiki protocol page
-parameter           AK4951 = 0;
-parameter           EXTENDED_DEBUG_RESP = 1;
+	parameter           NR = 8'h0;
+	parameter           VERSION_MAJOR = 8'h0;
+	parameter           VERSION_MINOR = 8'h0;
+	parameter           BOARD = 5;
+	parameter           BANDSCOPE_BITS = 2'b01; // See wiki protocol page
+	parameter           AK4951 = 0;
+	parameter           EXTENDED_DEBUG_RESP = 1;
 
-localparam          TUSERWIDTH = (AK4951 == 1) ? 16 : 2;
+	localparam          TUSERWIDTH = (AK4951 == 1) ? 16 : 2;
 
-localparam START        = 4'h0,
-           WIDE1        = 4'h1,
-           WIDE2        = 4'h2,
-           WIDE3        = 4'h3,
-           WIDE4        = 4'h4,
-           DISCOVER1    = 4'h5,
-           DISCOVER2    = 4'h6,
-           UDP1         = 4'h7,
-           UDP2         = 4'h8,
-           SYNC_RESP    = 4'h9,
-           RXDATA2      = 4'ha,
-           RXDATA1      = 4'hb,
-           RXDATA0      = 4'hc,
-           MIC1         = 4'hd,
-           MIC0         = 4'he,
-           PAD          = 4'hf;
+	localparam START        = 4'h0,
+			WIDE1        = 4'h1,
+			WIDE2        = 4'h2,
+			WIDE3        = 4'h3,
+			WIDE4        = 4'h4,
+			DISCOVER1    = 4'h5,
+			DISCOVER2    = 4'h6,
+			UDP1         = 4'h7,
+			UDP2         = 4'h8,
+			SYNC_RESP    = 4'h9,
+			RXDATA2      = 4'ha,
+			RXDATA1      = 4'hb,
+			RXDATA0      = 4'hc,
+			MIC1         = 4'hd,
+			MIC0         = 4'he,
+			PAD          = 4'hf;
 
-logic [ 3:0] state              = START                  ;
-logic [ 3:0] state_next                                  ;
-logic [10:0] byte_no            = 11'h00                 ;
-logic [10:0] byte_no_next                                ;
-logic [ 5:0] dbyte_no           = 6'h0                   ;
-logic [ 5:0] dbyte_no_next                               ;
-logic [10:0] udp_tx_length_next                          ;
-logic [19:0] ep6_seq_no         = 20'h0                  ;
-logic [19:0] ep6_seq_no_next                             ;
-logic [19:0] ep4_seq_no         = 20'h0                  ;
-logic [19:0] ep4_seq_no_next                             ;
-logic [ 7:0] discover_data      = 'd0, discover_data_next;
-logic [ 7:0] wide_data          = 'd0, wide_data_next    ;
-logic [ 7:0] udp_data           = 'd0, udp_data_next     ;
-// Allow for at least 12 receivers in a round of sample data
-logic [           6:0] round_bytes      = 7'h00, round_bytes_next;
-logic [           6:0] bs_cnt           = 7'h1, bs_cnt_next      ;
-logic [           6:0] set_bs_cnt       = 7'h1                   ;
-logic                  resp_rqst_next                            ;
-logic                  watchdog_up_next                          ;
-logic                  vna              = 1'b0                   ;
-logic [TUSERWIDTH-1:0] vna_mic          = 0, vna_mic_next        ;
-logic [           7:0] vna_mic_msb, vna_mic_lsb;
-logic [           1:0] discover_state                            ;
-logic                  discover_rst                              ;
+	logic [ 3:0] state              = START                  ;
+	logic [ 3:0] state_next                                  ;
+	logic [10:0] byte_no            = 11'h00                 ;
+	logic [10:0] byte_no_next                                ;
+	logic [ 5:0] dbyte_no           = 6'h0                   ;
+	logic [ 5:0] dbyte_no_next                               ;
+	logic [10:0] udp_tx_length_next                          ;
+	logic [19:0] ep6_seq_no         = 20'h0                  ;
+	logic [19:0] ep6_seq_no_next                             ;
+	logic [19:0] ep4_seq_no         = 20'h0                  ;
+	logic [19:0] ep4_seq_no_next                             ;
+	logic [ 7:0] discover_data      = 'd0, discover_data_next;
+	logic [ 7:0] wide_data          = 'd0, wide_data_next    ;
+	logic [ 7:0] udp_data           = 'd0, udp_data_next     ;
+	// Allow for at least 12 receivers in a round of sample data
+	logic [           6:0] round_bytes      = 7'h00, round_bytes_next;
+	logic [           6:0] bs_cnt           = 7'h1, bs_cnt_next      ;
+	logic [           6:0] set_bs_cnt       = 7'h1                   ;
+	logic                  resp_rqst_next                            ;
+	logic                  watchdog_up_next                          ;
+	logic                  vna              = 1'b0                   ;
+	logic [TUSERWIDTH-1:0] vna_mic          = 0, vna_mic_next        ;
+	logic [           7:0] vna_mic_msb, vna_mic_lsb;
+	logic [           1:0] discover_state                            ;
+	logic                  discover_rst                              ;
 
-logic [6:0] tx_buffer_latency = 7'h0a ; // Default to 10ms
-logic [4:0] ptt_hang_time     = 5'h04 ; // Default to 4 ms
-logic [9:0] cw_hang_time      = 10'h00;
-logic [7:0] pkt_cnt           = 8'h00 ;
-logic [1:0] sample_rate       = 2'h0  ;
-logic [3:0] receivers         = 4'h0  ;
-logic       force_discover            ;
-logic       force_discover_en = 1'b0  ;
-logic       cmd_ptt           = 1'b0  ;
-logic       tx_wait           = 1'b0  ;
-
-
-generate
-if (AK4951 == 1) begin
-  assign vna_mic_msb = vna_mic[15:8];
-  assign vna_mic_lsb = vna ? {7'h00,vna_mic[0]} : vna_mic[7:0];
-end else begin
-  assign vna_mic_msb = 8'h00;
-  assign vna_mic_lsb = vna ? {7'h00,vna_mic[0]} : 8'h00;
-end
-endgenerate
+	logic [6:0] tx_buffer_latency = 7'h0a ; // Default to 10ms
+	logic [4:0] ptt_hang_time     = 5'h04 ; // Default to 4 ms
+	logic [9:0] cw_hang_time      = 10'h00;
+	logic [7:0] pkt_cnt           = 8'h00 ;
+	logic [1:0] sample_rate       = 2'h0  ;
+	logic [3:0] receivers         = 4'h0  ;
+	logic       force_discover            ;
+	logic       force_discover_en = 1'b0  ;
+	logic       cmd_ptt           = 1'b0  ;
+	logic       tx_wait           = 1'b0  ;
 
 
-// Command Slave State Machine
-always @(posedge clk) begin
-  if (cmd_rqst) begin
-    case (cmd_addr)
-      6'h00: begin
-        // Shift no of receivers by speed
-        set_bs_cnt <= ((cmd_data[7:3] + 1'b1) << cmd_data[25:24]);
-      end
+	generate
+		if (AK4951 == 1)
+			begin
+				assign vna_mic_msb = vna_mic[15:8];
+				assign vna_mic_lsb = vna ? { 7'h00, vna_mic[0] } : vna_mic[7:0];
+			end
+		else
+			begin
+				assign vna_mic_msb = 8'h00;
+				assign vna_mic_lsb = vna ? { 7'h00, vna_mic[0] } : 8'h00;
+			end
+	endgenerate
 
-      6'h09: begin
-        vna <= cmd_data[23];
-      end
-    endcase
-  end
 
-  if (discover_rqst & ~discover_state[1]) discover_state <= {1'b1,discover_port};
-  else if (alt_resp_rqst & ~discover_state[1]) discover_state <= 2'b11;
-  else if (force_discover) discover_state <= 2'b11;
-  else if (discover_rst) discover_state <= 2'b00;
+	// Command Slave State Machine
+	always @(posedge clk)
+		begin
+			if (cmd_rqst)
+				begin
+					case (cmd_addr)
+						6'h00:
+							begin
+								// Shift no of receivers by speed
+								set_bs_cnt <= ((cmd_data[7:3] + 1'b1) << cmd_data[25:24]);
+							end
 
-end
+						6'h09:
+							begin
+								vna <= cmd_data[23];
+							end
+					endcase
+				end
+
+			if (discover_rqst & ~discover_state[1])
+				discover_state <= { 1'b1, discover_port };
+			else if (alt_resp_rqst & ~discover_state[1])
+				discover_state <= 2'b11;
+			else if (force_discover)
+				discover_state <= 2'b11;
+			else if (discover_rst)
+				discover_state <= 2'b00;
+		end
 
 
 // State

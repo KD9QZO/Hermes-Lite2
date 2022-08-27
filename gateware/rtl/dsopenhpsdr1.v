@@ -1,145 +1,151 @@
 // OpenHPSDR downstream (PC->Card) protocol unpacker
 
-module dsopenhpsdr1 (
-  input               clk                ,
-  input        [15:0] eth_port           ,
-  input               eth_broadcast      ,
-  input               eth_valid          ,
-  input        [ 7:0] eth_data           ,
-  input               eth_unreachable    ,
-  output logic        discover_port        = 1'b0,
-  output logic        discover_cnt         = 1'b0,
-  output logic        run                  = 1'b0,
-  output logic        wide_spectrum        = 1'b0,
-  input               watchdog_up        ,
-  input               msec_pulse         ,
-  output logic [ 5:0] ds_cmd_addr          = 6'h0,
-  output logic [31:0] ds_cmd_data          = 32'h00,
-  output logic        ds_cmd_cnt           = 1'b0,
-  output logic        ds_cmd_resprqst      = 1'b0,
-  output logic        ds_cmd_is_alt        = 1'b0,
-  output logic [ 1:0] ds_cmd_mask          = 2'b11,
-  output logic        ds_cmd_ptt           = 1'b0,
-  output       [ 7:0] dseth_tdata        ,
-  output              dsethiq_tvalid     ,
-  output              dsethiq_tlast      ,
-  output              dsethiq_tuser      ,
-  output              dsethlr_tvalid     ,
-  output              dsethlr_tlast      ,
-  //output              dsethlr_tuser,
-  output              dsethasmi_tvalid   ,
-  output              dsethasmi_tlast    ,
-  output logic [13:0] asmi_cnt             = 14'h000,
-  output              dsethasmi_erase    ,
-  input               dsethasmi_erase_ack,
-  output logic        ds_pkt_cnt         ,
-  input        [ 5:0] cmd_addr           ,
-  input        [31:0] cmd_data           ,
-  input               cmd_rqst
+module dsopenhpsdr1(
+	input clk,
+	input [15:0] eth_port,
+	input eth_broadcast,
+	input eth_valid,
+	input [7:0] eth_data,
+	input eth_unreachable,
+	output logic discover_port = 1'b0,
+	output logic discover_cnt = 1'b0,
+	output logic run = 1'b0,
+	output logic wide_spectrum = 1'b0,
+	input watchdog_up,
+	input msec_pulse,
+	output logic [5:0] ds_cmd_addr = 6'h0,
+	output logic [31:0] ds_cmd_data = 32'h00,
+	output logic ds_cmd_cnt = 1'b0,
+	output logic ds_cmd_resprqst = 1'b0,
+	output logic ds_cmd_is_alt = 1'b0,
+	output logic [1:0] ds_cmd_mask = 2'b11,
+	output logic ds_cmd_ptt = 1'b0,
+	output [7:0] dseth_tdata,
+	output dsethiq_tvalid,
+	output dsethiq_tlast,
+	output dsethiq_tuser,
+	output dsethlr_tvalid,
+	output dsethlr_tlast,
+//	output dsethlr_tuser,
+	output dsethasmi_tvalid,
+	output dsethasmi_tlast,
+	output logic [13:0] asmi_cnt = 14'h000,
+	output dsethasmi_erase,
+	input dsethasmi_erase_ack,
+	output logic ds_pkt_cnt,
+	input [5:0] cmd_addr,
+	input [31:0] cmd_data,
+	input cmd_rqst
 );
 
 
-localparam START        = 'h00,
-           PREAMBLE     = 'h01,
-           DECODE       = 'h02,
-           RUNSTOP      = 'h03,
-           DISCOVERY    = 'h04,
-           ENDPOINT     = 'h05,
-           SEQNO3       = 'h06,
-           SEQNO2       = 'h07,
-           SEQNO1       = 'h08,
-           SEQNO0       = 'h09,
-           ASMI_DECODE  = 'h2a,
-           ASMI_CNT3    = 'h2b,
-           ASMI_CNT2    = 'h2c,
-           ASMI_CNT1    = 'h2d,
-           ASMI_CNT0    = 'h2e,
-           ASMI_PROGRAM = 'h2f,
-           ASMI_ERASE   = 'h20,
-           SYNC2        = 'h10,
-           SYNC1        = 'h11,
-           SYNC0        = 'h12,
-           CMDCTRL      = 'h13,
-           CMDDATA3     = 'h14,
-           CMDDATA2     = 'h15,
-           CMDDATA1     = 'h16,
-           CMDDATA0     = 'h17,
-           PUSHL1       = 'h18,
-           PUSHL0       = 'h19,
-           PUSHR1       = 'h1a,
-           PUSHR0       = 'h1b,
-           PUSHI1       = 'h1c,
-           PUSHI0       = 'h1d,
-           PUSHQ1       = 'h1e,
-           PUSHQ0       = 'h1f;
+	localparam START = 'h00,
+			PREAMBLE = 'h01,
+			DECODE = 'h02,
+			RUNSTOP = 'h03,
+			DISCOVERY = 'h04,
+			ENDPOINT = 'h05,
+			SEQNO3 = 'h06,
+			SEQNO2 = 'h07,
+			SEQNO1 = 'h08,
+			SEQNO0 = 'h09,
+			ASMI_DECODE = 'h2a,
+			ASMI_CNT3 = 'h2b,
+			ASMI_CNT2 = 'h2c,
+			ASMI_CNT1 = 'h2d,
+			ASMI_CNT0 = 'h2e,
+			ASMI_PROGRAM = 'h2f,
+			ASMI_ERASE = 'h20,
+			SYNC2 = 'h10,
+			SYNC1 = 'h11,
+			SYNC0 = 'h12,
+			CMDCTRL = 'h13,
+			CMDDATA3 = 'h14,
+			CMDDATA2 = 'h15,
+			CMDDATA1 = 'h16,
+			CMDDATA0 = 'h17,
+			PUSHL1 = 'h18,
+			PUSHL0 = 'h19,
+			PUSHR1 = 'h1a,
+			PUSHR0 = 'h1b,
+			PUSHI1 = 'h1c,
+			PUSHI0 = 'h1d,
+			PUSHQ1 = 'h1e,
+			PUSHQ0 = 'h1f;
 
 
-logic [5:0] state        = START;
-logic [5:0] state_next          ;
-logic [7:0] pushcnt      = 8'h00;
-logic [7:0] pushcnt_next        ;
-//logic           framecnt = 1'b0;
-//logic           framecnt_next;
-logic        run_next            ;
-logic        wide_spectrum_next  ;
-logic [ 5:0] ds_cmd_addr_next    ;
-logic [31:0] ds_cmd_data_next    ;
-logic        ds_cmd_cnt_next     ;
-logic        ds_cmd_ptt_next     ;
-logic        ds_cmd_resprqst_next;
-logic        ds_cmd_is_alt_next  ;
-logic [ 1:0] ds_cmd_mask_next     = 2'b11 ;
+	logic [5:0] state        = START;
+	logic [5:0] state_next          ;
+	logic [7:0] pushcnt      = 8'h00;
+	logic [7:0] pushcnt_next        ;
+//	logic           framecnt = 1'b0;
+//	logic           framecnt_next;
+	logic        run_next            ;
+	logic        wide_spectrum_next  ;
+	logic [ 5:0] ds_cmd_addr_next    ;
+	logic [31:0] ds_cmd_data_next    ;
+	logic        ds_cmd_cnt_next     ;
+	logic        ds_cmd_ptt_next     ;
+	logic        ds_cmd_resprqst_next;
+	logic        ds_cmd_is_alt_next  ;
+	logic [ 1:0] ds_cmd_mask_next     = 2'b11 ;
 
-logic        ds_cmd_rqst                  ;
-logic        ds_pkt_cnt_next              ;
-logic        watchdog_clr                 ;
-logic [11:0] watchdog_cnt         = 12'h00;
-logic [13:0] asmi_cnt_next                ;
-logic [ 8:0] msec_cnt                     ;
-logic        msec_cnt_not_zero            ;
-logic        cwx_pushiq           = 1'b0  ;
-logic        cwx_pushiq_next              ;
-logic [ 1:0] cwx_saved            = 2'b00 ;
-logic [ 1:0] cwx_saved_next               ;
-logic        cwx_enable           = 1'b0  ;
+	logic        ds_cmd_rqst                  ;
+	logic        ds_pkt_cnt_next              ;
+	logic        watchdog_clr                 ;
+	logic [11:0] watchdog_cnt         = 12'h00;
+	logic [13:0] asmi_cnt_next                ;
+	logic [ 8:0] msec_cnt                     ;
+	logic        msec_cnt_not_zero            ;
+	logic        cwx_pushiq           = 1'b0  ;
+	logic        cwx_pushiq_next              ;
+	logic [ 1:0] cwx_saved            = 2'b00 ;
+	logic [ 1:0] cwx_saved_next               ;
+	logic        cwx_enable           = 1'b0  ;
 
-logic        discover_port_next;
-logic        discover_cnt_next;
+	logic        discover_port_next;
+	logic        discover_cnt_next;
 
-logic watchdog_disable = 1'b0;
-logic runstop_watchdog_valid = 1'b0;
+	logic watchdog_disable = 1'b0;
+	logic runstop_watchdog_valid = 1'b0;
 
-// State
-always @(posedge clk) begin
-  pushcnt         <= pushcnt_next;
-  ds_cmd_resprqst <= ds_cmd_resprqst_next;
-  ds_cmd_addr     <= ds_cmd_addr_next;
-  ds_cmd_data     <= ds_cmd_data_next;
-  ds_cmd_cnt      <= ds_cmd_cnt_next;
-  ds_cmd_is_alt   <= ds_cmd_is_alt_next;
-  ds_cmd_mask     <= ds_cmd_mask_next;
-  discover_port   <= discover_port_next;
-  discover_cnt    <= discover_cnt_next;
-  asmi_cnt        <= asmi_cnt_next;
-  cwx_pushiq      <= cwx_pushiq_next;
-  cwx_saved       <= cwx_saved_next;
-  ds_pkt_cnt      <= ds_pkt_cnt_next;
+	// State
+	always @(posedge clk)
+		begin
+			pushcnt <= pushcnt_next;
+			ds_cmd_resprqst <= ds_cmd_resprqst_next;
+			ds_cmd_addr     <= ds_cmd_addr_next;
+			ds_cmd_data     <= ds_cmd_data_next;
+			ds_cmd_cnt      <= ds_cmd_cnt_next;
+			ds_cmd_is_alt   <= ds_cmd_is_alt_next;
+			ds_cmd_mask     <= ds_cmd_mask_next;
+			discover_port   <= discover_port_next;
+			discover_cnt    <= discover_cnt_next;
+			asmi_cnt        <= asmi_cnt_next;
+			cwx_pushiq      <= cwx_pushiq_next;
+			cwx_saved       <= cwx_saved_next;
+			ds_pkt_cnt      <= ds_pkt_cnt_next;
 
-  if ((eth_unreachable) | &watchdog_cnt) begin
-    state         <= START;
-    run           <= 1'b0;
-    wide_spectrum <= 1'b0;
-    ds_cmd_ptt    <= 1'b0;
-  end else if (~eth_valid) begin
-    state <= START;
-    ds_cmd_ptt    <= ds_cmd_ptt_next;
-  end else begin
-    state         <= state_next;
-    run           <= run_next;
-    wide_spectrum <= wide_spectrum_next;
-    ds_cmd_ptt    <= ds_cmd_ptt_next;
-  end
-end
+			if ((eth_unreachable) | &watchdog_cnt)
+				begin
+					state         <= START;
+					run           <= 1'b0;
+					wide_spectrum <= 1'b0;
+					ds_cmd_ptt    <= 1'b0;
+				end
+			else if (~eth_valid)
+				begin
+					state <= START;
+					ds_cmd_ptt    <= ds_cmd_ptt_next;
+				end
+			else
+				begin
+					state         <= state_next;
+					run           <= run_next;
+					wide_spectrum <= wide_spectrum_next;
+					ds_cmd_ptt    <= ds_cmd_ptt_next;
+				end
+		end
 
 // FSM Combinational
 always @(*) begin

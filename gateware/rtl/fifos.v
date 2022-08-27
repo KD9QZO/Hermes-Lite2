@@ -1,128 +1,135 @@
 
-module dsiq_fifo (
-  wr_clk,
-  wr_tdata,
-  wr_tvalid,
-  wr_tready,
-  wr_tlast,
-
-  rd_clk,
-  rd_tdata,
-  rd_tvalid,
-  rd_tready,
-  rd_sample,
-  rd_status
+module dsiq_fifo(
+	wr_clk,
+	wr_tdata,
+	wr_tvalid,
+	wr_tready,
+	wr_tlast,
+	rd_clk,
+	rd_tdata,
+	rd_tvalid,
+	rd_tready,
+	rd_sample,
+	rd_status
 );
 
-input         wr_clk;
-input [8:0]   wr_tdata;
-input         wr_tvalid;
-output        wr_tready;
-input         wr_tlast;
+	input         wr_clk;
+	input [8:0]   wr_tdata;
+	input         wr_tvalid;
+	output        wr_tready;
+	input         wr_tlast;
 
-input         rd_clk;
-output [35:0] rd_tdata;
-output        rd_tvalid;
-input         rd_tready;
-input         rd_sample;
-output [7:0]  rd_status;
+	input         rd_clk;
+	output [35:0] rd_tdata;
+	output        rd_tvalid;
+	input         rd_tready;
+	input         rd_sample;
+	output [7:0]  rd_status;
 
-parameter     depth   = 8192;
+	parameter depth = 8192;
 
-// Write and read limite at 8 ms,
-localparam    wrbits  = (depth == 16384) ? 14 : 13;
-// Start to allow push again when 1/4 full (10ms) to accomodate software
-// that sends 20ms at a time
-localparam    wrlimit = (depth == 16384) ? 14'h1000 : 13'h0800;
+	// Write and read limite at 8 ms,
+	localparam wrbits = (depth == 16384) ? 14 : 13;
 
-localparam    rdbits  = (depth == 16384) ? 12 : 11;
-// Start to allow pop when 1/8 full 5ms
-localparam    rdlimit = (depth == 16384) ? 12'h0200 : 11'h0100;
+	// Start to allow push again when 1/4 full (10ms) to accomodate software
+	// that sends 20ms at a time
+	localparam wrlimit = (depth == 16384) ? 14'h1000 : 13'h0800;
 
-logic         wr_treadyn;
-logic         rd_tvalidn;
+	localparam rdbits = (depth == 16384) ? 12 : 11;
 
-logic         allow_push = 1'b1;
-logic [(wrbits-1):0]  wr_tlength;
+	// Start to allow pop when 1/8 full 5ms
+	localparam rdlimit = (depth == 16384) ? 12'h0200 : 11'h0100;
 
-logic [(rdbits-1):0]  rd_tlength;
+	logic wr_treadyn;
+	logic rd_tvalidn;
 
-logic   [6:0] rd_count = 7'h00;
-logic         recovery_flag, recovery_flag_d1;
+	logic allow_push = 1'b1;
+	logic [(wrbits-1):0] wr_tlength;
 
-// If FIFO fills, drop write data
-// again until only half full
-always @ (posedge wr_clk) begin
-  if (wr_treadyn) begin
-    allow_push <= 1'b0;
-  end else if (wr_tlast & (wr_tlength <= wrlimit)) begin
-    allow_push <= 1'b1;
-  end
-end
+	logic [(rdbits-1):0] rd_tlength;
 
-dcfifo_mixed_widths #(
-  .intended_device_family("Cyclone IV E"),
-  .lpm_numwords(depth),
-  .lpm_showahead ("ON"),
-  .lpm_type("dcfifo_mixed_widths"),
-  .lpm_width(9),
-  .lpm_widthu(wrbits),
-  .lpm_widthu_r(rdbits),
-  .lpm_width_r(36),
-  .overflow_checking("ON"),
-  .rdsync_delaypipe(4),
-  .underflow_checking("ON"),
-  .use_eab("ON"),
-  .wrsync_delaypipe(4)
-) fifo_i (
-  .wrclk (wr_clk),
-  .wrreq (wr_tvalid & allow_push),
-  .wrfull (wr_treadyn),
-  .wrempty (),
-  .wrusedw (wr_tlength),
-  .data (wr_tdata),
+	logic [6:0] rd_count = 7'h00;
+	logic recovery_flag, recovery_flag_d1;
 
-  .rdclk (rd_clk),
-  .rdreq (rd_tready),
-  .rdfull (),
-  .rdempty (rd_tvalidn),
-  .rdusedw (rd_tlength),
-  .q (rd_tdata),
 
-  .aclr (1'b0),
-  .eccstatus ()
-);
+	// If FIFO fills, drop write data
+	// again until only half full
+	always @ (posedge wr_clk)
+		begin
+			if (wr_treadyn)
+				begin
+					allow_push <= 1'b0;
+				end
+			else if (wr_tlast & (wr_tlength <= wrlimit))
+				begin
+					allow_push <= 1'b1;
+				end
+		end
 
-assign wr_tready = ~wr_treadyn & allow_push;
-assign rd_tvalid = ~rd_tvalidn;
+	dcfifo_mixed_widths #(
+		.intended_device_family("Cyclone IV E"),
+		.lpm_numwords(depth),
+		.lpm_showahead ("ON"),
+		.lpm_type("dcfifo_mixed_widths"),
+		.lpm_width(9),
+		.lpm_widthu(wrbits),
+		.lpm_widthu_r(rdbits),
+		.lpm_width_r(36),
+		.overflow_checking("ON"),
+		.rdsync_delaypipe(4),
+		.underflow_checking("ON"),
+		.use_eab("ON"),
+		.wrsync_delaypipe(4)
+	) fifo_i(
+		.wrclk(wr_clk),
+		.wrreq(wr_tvalid & allow_push),
+		.wrfull(wr_treadyn),
+		.wrempty(),
+		.wrusedw(wr_tlength),
+		.data(wr_tdata),
+		.rdclk(rd_clk),
+		.rdreq(rd_tready),
+		.rdfull(),
+		.rdempty(rd_tvalidn),
+		.rdusedw(rd_tlength),
+		.q(rd_tdata),
+		.aclr(1'b0),
+		.eccstatus()
+	);
 
-always @ (posedge rd_clk) begin
-  if (rd_sample) begin
-    rd_count <= rd_tlength[(rdbits-1):(rdbits-7)];
-    recovery_flag <= 1'b0;
-    recovery_flag_d1 <= recovery_flag;
-  end else if (rd_tvalidn | ~allow_push) begin
-    // Known CDC with allow_push, but okay since just status
-    recovery_flag <= 1'b1;
-  end
-end
+	assign wr_tready = ~wr_treadyn & allow_push;
+	assign rd_tvalid = ~rd_tvalidn;
 
-assign rd_status = {recovery_flag_d1,rd_count};
+	always @(posedge rd_clk)
+		begin
+			if (rd_sample)
+				begin
+					rd_count <= rd_tlength[(rdbits-1):(rdbits-7)];
+					recovery_flag <= 1'b0;
+					recovery_flag_d1 <= recovery_flag;
+				end
+			else if (rd_tvalidn | ~allow_push)
+				begin
+					// Known CDC with allow_push, but okay since just status
+					recovery_flag <= 1'b1;
+				end
+		end
+
+	assign rd_status = { recovery_flag_d1, rd_count };
 
 endmodule
 
 
 
-module dslr_fifo (
-  wr_clk,
-  wr_tdata,
-  wr_tvalid,
-  wr_tready,
-
-  rd_clk,
-  rd_tdata,
-  rd_tvalid,
-  rd_tready
+module dslr_fifo(
+	wr_clk,
+	wr_tdata,
+	wr_tvalid,
+	wr_tready,
+	rd_clk,
+	rd_tdata,
+	rd_tvalid,
+	rd_tready
 );
 
 input         wr_clk;
@@ -379,37 +386,38 @@ module asmi_fifo (
   wire [7:0] q = sub_wire0[7:0];
   wire [9:0] rdusedw = sub_wire1[9:0];
 
-  dcfifo  dcfifo_component (
-        .wrclk (wrclk),
-        .rdreq (rdreq),
-        .aclr (aclr),
-        .rdclk (rdclk),
-        .wrreq (wrreq),
-        .data (data),
-        .q (sub_wire0),
-        .rdusedw (sub_wire1)
-        // synopsys translate_off
-        ,
-        .rdempty (),
-        .rdfull (),
-        .wrempty (),
-        .wrfull (),
-        .wrusedw ()
-        // synopsys translate_on
-        );
-  defparam
-    dcfifo_component.intended_device_family = "Cyclone IV E",
-    dcfifo_component.lpm_numwords = 1024,
-    dcfifo_component.lpm_showahead = "OFF",
-    dcfifo_component.lpm_type = "dcfifo",
-    dcfifo_component.lpm_width = 8,
-    dcfifo_component.lpm_widthu = 10,
-    dcfifo_component.overflow_checking = "ON",
-    dcfifo_component.rdsync_delaypipe = 4,
-    dcfifo_component.underflow_checking = "ON",
-    dcfifo_component.use_eab = "ON",
-    dcfifo_component.write_aclr_synch = "OFF",
-    dcfifo_component.wrsync_delaypipe = 4;
+	dcfifo dcfifo_component(
+		.wrclk (wrclk),
+		.rdreq (rdreq),
+		.aclr (aclr),
+		.rdclk (rdclk),
+		.wrreq (wrreq),
+		.data (data),
+		.q (sub_wire0),
+		.rdusedw (sub_wire1)
+		// synopsys translate_off
+		,
+		.rdempty (),
+		.rdfull (),
+		.wrempty (),
+		.wrfull (),
+		.wrusedw ()
+		// synopsys translate_on
+	);
+
+	defparam
+			dcfifo_component.intended_device_family = "Cyclone IV E",
+			dcfifo_component.lpm_numwords = 1024,
+			dcfifo_component.lpm_showahead = "OFF",
+			dcfifo_component.lpm_type = "dcfifo",
+			dcfifo_component.lpm_width = 8,
+			dcfifo_component.lpm_widthu = 10,
+			dcfifo_component.overflow_checking = "ON",
+			dcfifo_component.rdsync_delaypipe = 4,
+			dcfifo_component.underflow_checking = "ON",
+			dcfifo_component.use_eab = "ON",
+			dcfifo_component.write_aclr_synch = "OFF",
+			dcfifo_component.wrsync_delaypipe = 4;
 
 
 endmodule

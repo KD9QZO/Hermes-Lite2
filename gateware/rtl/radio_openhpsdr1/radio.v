@@ -1,324 +1,344 @@
-module radio (
-
-  clk,
-  clk_2x,
-  
-  rst_channels,
-
-  rst_all,
-  rst_nco,
-
-  link_running,
-  link_master,
-  lm_data,
-  lm_valid,
-
-  ls_valid,
-  ls_done,
-
-  ds_cmd_ptt,
-  run,
-  qmsec_pulse,
-  ext_keydown,
-  ext_ptt,
-
-  tx_on,
-  cw_on,
-  cw_profile,
-
-  // Transmit
-  tx_tdata,
-  tx_tlast,
-  tx_tready,
-  tx_tvalid,
-  tx_tuser,
-  tx_twait,
-
-  tx_data_dac,
-
-  clk_envelope,
-  tx_envelope_pwm_out,
-  tx_envelope_pwm_out_inv,
-
-  // Optional audio stream for repurposed programming or EER
-  lr_tdata,
-  lr_tid,
-  lr_tlast,
-  lr_tready,
-  lr_tvalid,
-
-  // Receive
-  rx_data_adc,
-
-  rx_tdata,
-  rx_tlast,
-  rx_tready,
-  rx_tvalid,
-  rx_tuser,
-
-  // Command slave interface
-  cmd_addr,
-  cmd_data,
-  cmd_rqst,
-  cmd_ack,
-
-  debug_out
+module radio(
+	clk,
+	clk_2x,
+	rst_channels,
+	rst_all,
+	rst_nco,
+	link_running,
+	link_master,
+	lm_data,
+	lm_valid,
+	ls_valid,
+	ls_done,
+	ds_cmd_ptt,
+	run,
+	qmsec_pulse,
+	ext_keydown,
+	ext_ptt,
+	tx_on,
+	cw_on,
+	cw_profile,
+	tx_tdata,
+	tx_tlast,
+	tx_tready,
+	tx_tvalid,
+	tx_tuser,
+	tx_twait,
+	tx_data_dac,
+	clk_envelope,
+	tx_envelope_pwm_out,
+	tx_envelope_pwm_out_inv,
+	lr_tdata,
+	lr_tid,
+	lr_tlast,
+	lr_tready,
+	lr_tvalid,
+	rx_data_adc,
+	rx_tdata,
+	rx_tlast,
+	rx_tready,
+	rx_tvalid,
+	rx_tuser,
+	cmd_addr,
+	cmd_data,
+	cmd_rqst,
+	cmd_ack,
+	debug_out
 );
 
-parameter         NR = 3;
-parameter         NT = 1;
-parameter         LRDATA = 0;
-parameter         VNA = 1;
-parameter         CLK_FREQ = 76800000;
-
-parameter         RECEIVER2 = 0;
-parameter         QS1R = 0;
-
-parameter         DEBUGRX = 0;
-
-parameter         HL2LINK = 0;
-
-// B57 = 2^57.   M2 = B57/OSC
-// 61440000
-//localparam M2 = 32'd2345624805;
-// 61440000-400
-//localparam M2 = 32'd2345640077;
-localparam M2 = (CLK_FREQ == 61440000) ? 32'd2345640077 : (CLK_FREQ == 79872000) ? 32'd1804326773 : (CLK_FREQ == 76800000) ? 32'd1876499845 : 32'd1954687338;
-
-// M3 = 2^24 to round as version 2.7
-localparam M3 = 32'd16777216;
-
-localparam CICRATE = (CLK_FREQ == 61440000) ? 6'd10 : (CLK_FREQ == 79872000) ? 6'd13 : (CLK_FREQ == 76800000) ? 6'd05 : 6'd08;
-localparam GBITS = (CLK_FREQ == 61440000) ? 30 : (CLK_FREQ == 79872000) ? 31 : (CLK_FREQ == 76800000) ? 31 : 31;
-localparam RRRR = (CLK_FREQ == 61440000) ? 160 : (CLK_FREQ == 79872000) ? 208 : (CLK_FREQ == 76800000) ? 200 : 192;
-
-// Decimation rates
-localparam RATE48  = (CLK_FREQ == 61440000) ? 6'd16 : (CLK_FREQ == 79872000) ? 6'd16 : (CLK_FREQ == 76800000) ? 6'd40 : 6'd24;
-localparam RATE96  =  RATE48  >> 1;
-localparam RATE192 =  RATE96  >> 1;
-localparam RATE384 =  RATE192 >> 1;
-
-localparam CALCTYPE = (NR > 5) ? 0 : 3;
-
-input         clk                    ;
-input         clk_2x                 ;
-input         rst_channels           ;
-input         rst_all                ;
-input         rst_nco                ;
-input         link_running           ;
-input         link_master            ;
-input  [23:0] lm_data                ;
-input         lm_valid               ;
-output        ls_valid               ;
-input         ls_done                ;
-input         ds_cmd_ptt             ;
-input         run                    ;
-input         qmsec_pulse            ;
-input         ext_keydown            ;
-input         ext_ptt                ;
-output        tx_on                  ;
-output        cw_on                  ;
-output [18:0] cw_profile             ;
-input         clk_envelope           ;
-output        tx_envelope_pwm_out    ;
-output        tx_envelope_pwm_out_inv;
-input  [31:0] tx_tdata               ;
-input         tx_tlast               ;
-output        tx_tready              ;
-input         tx_tvalid              ;
-input  [ 3:0] tx_tuser               ;
-output        tx_twait               ;
-input  [31:0] lr_tdata               ;
-input  [ 2:0] lr_tid                 ;
-input         lr_tlast               ;
-output        lr_tready              ;
-input         lr_tvalid              ;
-output [11:0] tx_data_dac            ;
-input  [11:0] rx_data_adc            ;
-output [23:0] rx_tdata               ;
-output        rx_tlast               ;
-input         rx_tready              ;
-output        rx_tvalid              ;
-output [ 1:0] rx_tuser               ;
-// Command slave interface
-input  [ 5:0]        cmd_addr ;
-input  [31:0]        cmd_data ;
-input                cmd_rqst ;
-output               cmd_ack  ;
-output logic [15:0]  debug_out;
+	parameter NR = 3;
+	parameter NT = 1;
+	parameter LRDATA = 0;
+	parameter VNA = 1;
+	parameter CLK_FREQ = 76800000;
+	parameter RECEIVER2 = 0;
+	parameter QS1R = 0;
+	parameter DEBUGRX = 0;
+	parameter HL2LINK = 0;
 
 
-logic [ 1:0]        tx_predistort = 2'b00;
-logic [ 1:0]        tx_predistort_next;
+	// B57 = 2^57.   M2 = B57/OSC
+	// 61440000
+//	localparam M2 = 32'd2345624805;
+	// 61440000-400
+//	localparam M2 = 32'd2345640077;
+	localparam M2 = (CLK_FREQ == 61440000) ? 32'd2345640077 : (CLK_FREQ == 79872000) ? 32'd1804326773 : (CLK_FREQ == 76800000) ? 32'd1876499845 : 32'd1954687338;
 
-logic               pure_signal = 1'b0;
-logic               pure_signal_next;
+	// M3 = 2^24 to round as version 2.7
+	localparam M3 = 32'd16777216;
 
-logic               vna = 1'b0;
-logic               vna_next;
-logic  [15:0]       vna_count;
-logic  [15:0]       vna_count_next;
+	localparam CICRATE = (CLK_FREQ == 61440000) ? 6'd10 : (CLK_FREQ == 79872000) ? 6'd13 : (CLK_FREQ == 76800000) ? 6'd05 : 6'd08;
+	localparam GBITS = (CLK_FREQ == 61440000) ? 30 : (CLK_FREQ == 79872000) ? 31 : (CLK_FREQ == 76800000) ? 31 : 31;
+	localparam RRRR = (CLK_FREQ == 61440000) ? 160 : (CLK_FREQ == 79872000) ? 208 : (CLK_FREQ == 76800000) ? 200 : 192;
 
-logic  [ 1:0]       rx_rate = 2'b00;
-logic  [ 1:0]       rx_rate_next;
+	// Decimation rates
+	localparam RATE48 = (CLK_FREQ == 61440000) ? 6'd16 : (CLK_FREQ == 79872000) ? 6'd16 : (CLK_FREQ == 76800000) ? 6'd40 : 6'd24;
+	localparam RATE96 = RATE48 >> 1;
+	localparam RATE192 = RATE96 >> 1;
+	localparam RATE384 = RATE192 >> 1;
 
-logic  [ 3:0]       last_chan = 4'h0;
-logic  [ 3:0]       last_chan_next;
-
-logic  [ 3:0]       chan = 4'h0;
-logic  [ 3:0]       chan_next;
-logic  [ 3:0]       chan_index = 4'h0;
-
-logic               duplex = 1'b0;
-logic               duplex_next;
-
-logic               pa_mode = 1'b0;
-logic               pa_mode_next;
-logic  [ 9:0]       PWM_min = 10'd0; // minimum width of TX envelope PWM pulse
-logic  [ 9:0]       PWM_min_next;
-logic  [ 9:0]       PWM_max = 10'd1023; // maximum width of TX envelope PWM pulse
-logic  [ 9:0]       PWM_max_next;
-
-logic   [5:0]       rate;
-logic   [11:0]      adcpipe [0:4];
+	localparam CALCTYPE = (NR > 5) ? 0 : 3;
 
 
-logic [23:0]  rx_data_i [0:9];
-logic [23:0]  rx_data_q [0:9];
-logic         rx_data_rdy [0:9];
-
-logic [63:0]  freqcomp;
-logic [31:0]  freqcompp [0:2];
-logic [3:0]   chanp [0:2];
-
-
-logic [31:0]  rx_phase [0:9];    // The Rx phase calculated from the frequency sent by the PC.
-logic [31:0]  tx_phase0;
-
-logic signed [17:0]   mixdata_i [0:9];
-logic signed [17:0]   mixdata_q [0:9];
-
-logic [3:0] nco_index;
-
-logic [33:0] debug;
-
-logic [5:0]  synced_receivers   = 6'h00;
-
-
-genvar c;
-
-localparam
-  CMD_IDLE    = 2'b00,
-  CMD_FREQ1   = 2'b01,
-  CMD_FREQ2   = 2'b11,
-  CMD_FREQ3   = 2'b10;
-
-logic [1:0]   cmd_state = CMD_IDLE;
-logic [1:0]   cmd_state_next;
-
-// Command Slave State Machine
-always @(posedge clk) begin
-  cmd_state <= cmd_state_next;
-  vna <= vna_next;
-  vna_count <= vna_count_next;
-  rx_rate <= rx_rate_next;
-  pure_signal <= pure_signal_next;
-  tx_predistort <= tx_predistort_next;
-  last_chan <= last_chan_next;
-  duplex <= duplex_next;
-  pa_mode <= pa_mode_next;
-  PWM_min <= PWM_min_next;
-  PWM_max <= PWM_max_next;
-end
-
-always @* begin
-  cmd_state_next = cmd_state;
-  cmd_ack = 1'b0;
-  vna_next = vna;
-  vna_count_next = vna_count;
-  rx_rate_next = rx_rate;
-  pure_signal_next = pure_signal;
-  tx_predistort_next = tx_predistort;
-  last_chan_next = last_chan;
-  duplex_next = duplex;
-  pa_mode_next = pa_mode;
-  PWM_min_next = PWM_min;
-  PWM_max_next = PWM_max;
-
-  case(cmd_state)
-
-    CMD_IDLE: begin
-      if (cmd_rqst) begin
-        case (cmd_addr)
-          // Frequency changes
-          6'h01:    cmd_state_next    = CMD_FREQ1;
-          6'h02:    cmd_state_next    = CMD_FREQ1;
-          6'h03:    cmd_state_next    = CMD_FREQ1;
-          6'h04:    cmd_state_next    = CMD_FREQ1;
-          6'h05:    cmd_state_next    = CMD_FREQ1;
-          6'h06:    cmd_state_next    = CMD_FREQ1;
-          6'h07:    cmd_state_next    = CMD_FREQ1;
-          6'h08:    cmd_state_next    = CMD_FREQ1;
-          6'h12:    cmd_state_next    = CMD_FREQ1;
-          6'h13:    cmd_state_next    = CMD_FREQ1;
-          6'h14:    cmd_state_next    = CMD_FREQ1;
-          6'h15:    cmd_state_next    = CMD_FREQ1;
-          6'h16:    cmd_state_next    = CMD_FREQ1;
-
-          // Control with no acknowledge
-          6'h00: begin
-            rx_rate_next              = cmd_data[25:24];
-            pa_mode_next              = cmd_data[16];
-            last_chan_next            = cmd_data[6:3];
-            duplex_next               = cmd_data[2];
-          end
-
-          6'h09: begin
-            vna_next         = cmd_data[23];
-            vna_count_next   = cmd_data[15:0];
-          end
-          6'h0a:    pure_signal_next  = cmd_data[22];
-
-          6'h11: begin
-            // TX envelope PWM min and max
-            PWM_min_next = {cmd_data[31:24], cmd_data[17:16]};
-            PWM_max_next = {cmd_data[15:8], cmd_data[1:0]};
-          end
-
-          6'h2b: begin
-            //predistortion control sub index
-            if(cmd_data[31:24]==8'h00) begin
-              tx_predistort_next      = cmd_data[17:16];
-            end
-          end
-
-          default:  cmd_state_next = cmd_state;
-        endcase
-      end
-    end
-
-    CMD_FREQ1: begin
-      cmd_state_next = CMD_FREQ2;
-    end
-
-    CMD_FREQ2: begin
-      cmd_state_next = CMD_FREQ3;
-    end
-
-    CMD_FREQ3: begin
-      cmd_state_next = CMD_IDLE;
-      cmd_ack = 1'b1;
-    end
-  endcase
-end
+	input clk;
+	input clk_2x;
+	input rst_channels;
+	input rst_all;
+	input rst_nco;
+	input link_running;
+	input link_master;
+	input [23:0] lm_data;
+	input lm_valid;
+	output ls_valid;
+	input ls_done;
+	input ds_cmd_ptt;
+	input run;
+	input qmsec_pulse;
+	input ext_keydown;
+	input ext_ptt;
+	output tx_on;
+	output cw_on;
+	output [18:0] cw_profile;
+	input clk_envelope;
+	output tx_envelope_pwm_out;
+	output tx_envelope_pwm_out_inv;
+	input [31:0] tx_tdata;
+	input tx_tlast;
+	output tx_tready;
+	input tx_tvalid;
+	input [3:0] tx_tuser;
+	output tx_twait;
+	input [31:0] lr_tdata;
+	input [2:0] lr_tid;
+	input lr_tlast;
+	output lr_tready;
+	input lr_tvalid;
+	output [11:0] tx_data_dac;
+	input [11:0] rx_data_adc;
+	output [23:0] rx_tdata;
+	output rx_tlast;
+	input rx_tready;
+	output rx_tvalid;
+	output [1:0] rx_tuser;
+	// Command slave interface
+	input [5:0] cmd_addr;
+	input [31:0] cmd_data;
+	input cmd_rqst;
+	output cmd_ack;
+	output logic [15:0] debug_out;
 
 
-// Frequency computation
-// Always compute frequency
-// This really should be done on the PC and not in the FPGA....
-// This is not guarded by CDC handshake, but use of freqcomp
-// is guarded by CDC handshake
-assign freqcomp = cmd_data * M2 + M3;
+	logic [1:0] tx_predistort = 2'b00;
+	logic [1:0] tx_predistort_next;
+
+	logic pure_signal = 1'b0;
+	logic pure_signal_next;
+
+	logic vna = 1'b0;
+	logic vna_next;
+	logic [15:0] vna_count;
+	logic [15:0] vna_count_next;
+
+	logic [1:0] rx_rate = 2'b00;
+	logic [1:0] rx_rate_next;
+
+	logic [3:0] last_chan = 4'h0;
+	logic [3:0] last_chan_next;
+
+	logic [3:0] chan = 4'h0;
+	logic [3:0] chan_next;
+	logic [3:0] chan_index = 4'h0;
+
+	logic duplex = 1'b0;
+	logic duplex_next;
+
+	logic pa_mode = 1'b0;
+	logic pa_mode_next;
+	logic [9:0] PWM_min = 10'd0; // minimum width of TX envelope PWM pulse
+	logic [9:0] PWM_min_next;
+	logic [9:0] PWM_max = 10'd1023; // maximum width of TX envelope PWM pulse
+	logic [9:0] PWM_max_next;
+
+	logic [5:0] rate;
+	logic [11:0] adcpipe [0:4];
+
+
+	logic [23:0] rx_data_i [0:9];
+	logic [23:0] rx_data_q [0:9];
+	logic rx_data_rdy [0:9];
+
+	logic [63:0] freqcomp;
+	logic [31:0] freqcompp [0:2];
+	logic [3:0] chanp [0:2];
+
+
+	logic [31:0] rx_phase [0:9]; // The Rx phase calculated from the frequency sent by the PC.
+	logic [31:0] tx_phase0;
+
+	logic signed [17:0] mixdata_i [0:9];
+	logic signed [17:0] mixdata_q [0:9];
+
+	logic [3:0] nco_index;
+
+	logic [33:0] debug;
+
+	logic [5:0] synced_receivers = 6'h00;
+
+
+	genvar c;
+
+	localparam
+			CMD_IDLE = 2'b00,
+			CMD_FREQ1 = 2'b01,
+			CMD_FREQ2 = 2'b11,
+			CMD_FREQ3 = 2'b10;
+
+	logic [1:0] cmd_state = CMD_IDLE;
+	logic [1:0] cmd_state_next;
+
+
+	// Command Slave State Machine
+	always @(posedge clk)
+		begin
+			cmd_state <= cmd_state_next;
+			vna <= vna_next;
+			vna_count <= vna_count_next;
+			rx_rate <= rx_rate_next;
+			pure_signal <= pure_signal_next;
+			tx_predistort <= tx_predistort_next;
+			last_chan <= last_chan_next;
+			duplex <= duplex_next;
+			pa_mode <= pa_mode_next;
+			PWM_min <= PWM_min_next;
+			PWM_max <= PWM_max_next;
+		end
+
+	always @*
+		begin
+			cmd_state_next = cmd_state;
+			cmd_ack = 1'b0;
+			vna_next = vna;
+			vna_count_next = vna_count;
+			rx_rate_next = rx_rate;
+			pure_signal_next = pure_signal;
+			tx_predistort_next = tx_predistort;
+			last_chan_next = last_chan;
+			duplex_next = duplex;
+			pa_mode_next = pa_mode;
+			PWM_min_next = PWM_min;
+			PWM_max_next = PWM_max;
+
+			case (cmd_state)
+				CMD_IDLE:
+					begin
+						if (cmd_rqst)
+							begin
+								case (cmd_addr)
+									// Frequency changes
+									6'h01:
+										cmd_state_next    = CMD_FREQ1;
+
+									6'h02:
+										cmd_state_next    = CMD_FREQ1;
+
+									6'h03:
+										cmd_state_next    = CMD_FREQ1;
+
+									6'h04:
+										cmd_state_next    = CMD_FREQ1;
+
+									6'h05:
+										cmd_state_next    = CMD_FREQ1;
+
+									6'h06:
+										cmd_state_next    = CMD_FREQ1;
+
+									6'h07:
+										cmd_state_next    = CMD_FREQ1;
+
+									6'h08:
+										cmd_state_next    = CMD_FREQ1;
+
+									6'h12:
+										cmd_state_next    = CMD_FREQ1;
+
+									6'h13:
+										cmd_state_next    = CMD_FREQ1;
+
+									6'h14:
+										cmd_state_next    = CMD_FREQ1;
+
+									6'h15:
+										cmd_state_next    = CMD_FREQ1;
+
+									6'h16:
+										cmd_state_next    = CMD_FREQ1;
+
+									// Control with no acknowledge
+									6'h00:
+										begin
+											rx_rate_next              = cmd_data[25:24];
+											pa_mode_next              = cmd_data[16];
+											last_chan_next            = cmd_data[6:3];
+											duplex_next               = cmd_data[2];
+										end
+
+									6'h09:
+										begin
+											vna_next         = cmd_data[23];
+											vna_count_next   = cmd_data[15:0];
+										end
+
+									6'h0a:
+										pure_signal_next  = cmd_data[22];
+
+									6'h11:
+										begin
+											// TX envelope PWM min and max
+											PWM_min_next = { cmd_data[31:24], cmd_data[17:16] };
+											PWM_max_next = { cmd_data[15:8], cmd_data[1:0] };
+										end
+
+									6'h2b:
+										begin
+											// predistortion control sub index
+											if (cmd_data[31:24] == 8'h00)
+												begin
+													tx_predistort_next      = cmd_data[17:16];
+												end
+										end
+
+									default:
+										cmd_state_next = cmd_state;
+								endcase
+							end
+					end
+
+				CMD_FREQ1:
+					begin
+						cmd_state_next = CMD_FREQ2;
+					end
+
+				CMD_FREQ2:
+					begin
+						cmd_state_next = CMD_FREQ3;
+					end
+
+				CMD_FREQ3:
+					begin
+						cmd_state_next = CMD_IDLE;
+						cmd_ack = 1'b1;
+					end
+			endcase
+		end
+
+
+	// Frequency computation
+	// Always compute frequency
+	// This really should be done on the PC and not in the FPGA....
+	// This is not guarded by CDC handshake, but use of freqcomp
+	// is guarded by CDC handshake
+	assign freqcomp = cmd_data * M2 + M3;
 
 // Map address to phase index
 always @* begin

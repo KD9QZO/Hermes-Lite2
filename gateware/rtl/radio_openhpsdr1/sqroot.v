@@ -35,35 +35,38 @@
 
 
 // synopsys translate_off
-`timescale 1 ps / 1 ps
+`timescale 1ps/1ps
 // synopsys translate_on
-module sqroot (
+
+module sqroot(
 	clk,
 	radical,
 	q,
-	remainder);
+	remainder
+);
 
-	input	  clk;
-	input	[31:0]  radical;
-	output	[15:0]  q;
-	output	[16:0]  remainder;
+	input clk;
+	input [31:0] radical;
+	output [15:0] q;
+	output [16:0] remainder;
 
 	wire [15:0] sub_wire0;
 	wire [16:0] sub_wire1;
 	wire [15:0] q = sub_wire0[15:0];
 	wire [16:0] remainder = sub_wire1[16:0];
 
-	altsqrt	ALTSQRT_component (
-				.clk (clk),
-				.radical (radical),
-				.q (sub_wire0),
-				.remainder (sub_wire1)
-				// synopsys translate_off
-				,
-				.aclr (),
-				.ena ()
-				// synopsys translate_on
-				);
+	altsqrt ALTSQRT_component(
+		.clk(clk),
+		.radical(radical),
+		.q(sub_wire0),
+		.remainder(sub_wire1)
+		// synopsys translate_off
+		,
+		.aclr(),
+		.ena()
+		// synopsys translate_on
+	);
+
 	defparam
 		ALTSQRT_component.pipeline = 10,
 		ALTSQRT_component.q_port_width = 16,

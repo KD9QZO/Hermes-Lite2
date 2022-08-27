@@ -1,18 +1,30 @@
 
 
-module cw_basic (
-  input         clk               ,
-  input  [ 5:0] cmd_addr          ,
-  input  [31:0] cmd_data          ,
-  input         cmd_rqst          ,
-  input         msec_pulse        ,
-  input         dot_key           ,
-  input         dash_key          ,
-  input         dot_key_debounced ,
-  input         dash_key_debounced,
-  output        cw_power_on       ,
-  output        cw_keydown
+module cw_basic(
+	clk,
+	cmd_addr,
+	cmd_data,
+	cmd_rqst,
+	msec_pulse,
+	dot_key,
+	dash_key,
+	dot_key_debounced,
+	dash_key_debounced,
+	cw_power_on,
+	cw_keydown
 );
+
+	input clk;
+	input [5:0] cmd_addr;
+	input [31:0] cmd_data;
+	input cmd_rqst;
+	input msec_pulse;
+	input dot_key;
+	input dash_key;
+	input dot_key_debounced;
+	input dash_key_debounced;
+	output cw_power_on;
+	output cw_keydown;
 
 localparam
   IDLE = 2'b00,

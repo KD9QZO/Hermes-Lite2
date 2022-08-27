@@ -25,151 +25,189 @@
 //  2018 Steve Haynal KF7O
 
 
-module network (
-
-  // dhcp and mdio clock
-  input clock_2_5MHz,
-
-  // upstream
-  input         tx_clock,
-  input  [1:0]  udp_tx_request,
-  input [15:0]  udp_tx_length,
-  input [7:0]   udp_tx_data,
-  output        udp_tx_enable,
-  input         run,
-  input [7:0]   port_id,
-
-  // downstream
-  input         rx_clock,
-  output [15:0] to_port,
-  output [7:0]  udp_rx_data,
-  output        udp_rx_active,
-  output        broadcast,
-  output        dst_unreachable,
-
-  // status and control
-  input  [ 7:0] eeprom_config,
-  input  [31:0] static_ip,
-  input  [47:0] local_mac,
-  output        speed_1gb,
-  output        network_state_dhcp,
-  output        network_state_fixedip,
-  output [1:0]  network_speed,
-  output reg    phy_connected,
-  output        is_ksz9021,
-
-  // phy
-  output [3:0]  PHY_TX,
-  output        PHY_TX_EN,
-  input  [3:0]  PHY_RX,
-  input         PHY_DV,
-
-  inout         PHY_MDIO,
-  output        PHY_MDC
+module network(
+	clock_2_5MHz,
+	tx_clock,
+	udp_tx_request,
+	udp_tx_length,
+	udp_tx_data,
+	udp_tx_enable,
+	run,
+	port_id,
+	rx_clock,
+	to_port,
+	udp_rx_data,
+	udp_rx_active,
+	broadcast,
+	dst_unreachable,
+	eeprom_config,
+	static_ip,
+	local_mac,
+	speed_1gb,
+	network_state_dhcp,
+	network_state_fixedip,
+	network_speed,
+	phy_connected,
+	is_ksz9021,
+	PHY_TX,
+	PHY_TX_EN,
+	PHY_RX,
+	PHY_DV,
+	PHY_MDIO,
+	PHY_MDC
 );
 
-parameter SIM = 0;
+	parameter SIM = 0;
 
-wire udp_tx_active;
-wire eeprom_ready;
-wire [1:0] phy_speed;
-wire phy_duplex;
-wire dhcp_success;
-wire icmp_rx_enable;
-wire phy_connected_int = phy_duplex && (phy_speed[1] != phy_speed[0]);
+	// DHCP and MDIO clock
+	input clock_2_5MHz;
 
-reg speed_1gb_i = 1'b0;
-//assign dhcp_timeout = (dhcp_seconds_timer == 15);
+	// upstream
+	input tx_clock;
+	input [1:0] udp_tx_request;
+	input [15:0] udp_tx_length;
+	input [7:0] udp_tx_data;
+	output udp_tx_enable;
+	input run;
+	input [7:0] port_id;
 
+	// downstream
+	input rx_clock;
+	output [15:0] to_port;
+	output [7:0] udp_rx_data;
+	output udp_rx_active;
+	output broadcast;
+	output dst_unreachable;
 
-//-----------------------------------------------------------------------------
-//                             state machine
-//-----------------------------------------------------------------------------
-//IP addresses
-reg  [31:0] local_ip;
-//wire [31:0] apipa_ip = {8'd192, 8'd168, 8'd22, 8'd248};
-wire [31:0] apipa_ip = {8'd169, 8'd254, local_mac[15:0]};
-//wire [31:0] ip_to_write;
+	// status and control
+	input [ 7:0] eeprom_config;
+	input [31:0] static_ip;
+	input [47:0] local_mac;
+	output speed_1gb;
+	output network_state_dhcp;
+	output network_state_fixedip;
+	output [1:0] network_speed;
+	output reg phy_connected;
+	output is_ksz9021;
 
-localparam
-  ST_START         = 4'd0,
-  ST_PHY_INIT      = 4'd3,
-  ST_PHY_CONNECT   = 4'd4,
-  ST_PHY_SETTLE    = 4'd5,
-  ST_DHCP_REQUEST  = 4'd6,
-  ST_DHCP          = 4'd7,
-  ST_DHCP_RETRY    = 4'd8,
-  ST_RUNNING       = 4'd9,
-  ST_DHCP_RENEW_WAIT  = 4'd10,
-  ST_DHCP_RENEW_REQ   = 4'd11,
-  ST_DHCP_RENEW_ACK   = 4'd12;
+	// PHY
+	output [3:0] PHY_TX;
+	output PHY_TX_EN;
+	input [3:0] PHY_RX;
+	input PHY_DV;
 
-
-
-// Set Tx_reset (no sdr send) if network_state is True
-assign network_state_dhcp = reg_network_state_dhcp;   // network_state is low when we have an IP address
-assign network_state_fixedip = reg_network_state_fixedip;
-reg reg_network_state_dhcp = 1'b1;           // this is used in network.v to hold code in reset when high
-reg reg_network_state_fixedip = 1'b1;
-reg [3:0] state = ST_START;
-reg [21:0] dhcp_timer;
-reg dhcp_tx_enable;
-reg [17:0] dhcp_renew_timer;  // holds number of seconds before DHCP IP address must be renewed
-reg [3:0] dhcp_seconds_timer;   // number of seconds since the DHCP request started
+	inout PHY_MDIO;
+	output PHY_MDC;
 
 
+	wire udp_tx_active;
+	wire eeprom_ready;
+	wire [1:0] phy_speed;
+	wire phy_duplex;
+	wire dhcp_success;
+	wire icmp_rx_enable;
+	wire phy_connected_int = phy_duplex && (phy_speed[1] != phy_speed[0]);
 
-//reset all child modules
-wire rx_reset, tx_reset;
-sync sync_inst1(.clock(rx_clock), .sig_in(state <= ST_PHY_SETTLE), .sig_out(rx_reset));
-sync sync_inst2(.clock(tx_clock), .sig_in(state <= ST_PHY_SETTLE), .sig_out(tx_reset));
+	reg speed_1gb_i = 1'b0;
+//	assign dhcp_timeout = (dhcp_seconds_timer == 15);
 
 
-always @(negedge clock_2_5MHz)
-  //if connection lost, wait until reconnects
-  if ((state > ST_PHY_CONNECT) && !phy_connected_int) begin
-    reg_network_state_dhcp <= 1'b1;
-    reg_network_state_fixedip <= 1'b1;
-    state <= ST_PHY_CONNECT;
-  end
+	//-----------------------------------------------------------------------------
+	//                             state machine
+	//-----------------------------------------------------------------------------
 
-  else
-  case (state)
-    //set eeprom read request
-    ST_START: begin
-      speed_1gb_i <= 0;
-      state <= ST_PHY_INIT;
-    end
+	// IP addresses
+	reg [31:0] local_ip;
+//	wire [31:0] apipa_ip = { 8'd192, 8'd168, 8'd22, 8'd248 };
+	wire [31:0] apipa_ip = { 8'd169, 8'd254, local_mac[15:0] };
+//	wire [31:0] ip_to_write;
 
-    //set phy initialization request
-    ST_PHY_INIT:
-      state <= ST_PHY_CONNECT;
+	localparam
+			ST_START = 4'd0,
+			ST_PHY_INIT = 4'd3,
+			ST_PHY_CONNECT = 4'd4,
+			ST_PHY_SETTLE = 4'd5,
+			ST_DHCP_REQUEST = 4'd6,
+			ST_DHCP = 4'd7,
+			ST_DHCP_RETRY = 4'd8,
+			ST_RUNNING = 4'd9,
+			ST_DHCP_RENEW_WAIT = 4'd10,
+			ST_DHCP_RENEW_REQ = 4'd11,
+			ST_DHCP_RENEW_ACK = 4'd12;
 
-    //clear phy initialization request
-    //wait for phy to initialize and connect
-    ST_PHY_CONNECT:
-      if (phy_connected_int) begin
-        dhcp_timer <= (SIM==1) ? 22'h01 : 22'd2500000; //1 second
-        state <= ST_PHY_SETTLE;
-        speed_1gb_i <= phy_speed[1];
-      end
 
-    //wait for connection to settle
-    ST_PHY_SETTLE: begin
-      //when network has settled, get ip address, if static IP assigned then use it else try DHCP
-      if (dhcp_timer == 0) begin
-        if (eeprom_config[7] & ~eeprom_config[5]) begin
-          local_ip <= static_ip;
-          state <= ST_RUNNING;
-        end else begin
-          local_ip <= 32'h00_00_00_00;                // needs to be 0.0.0.0 for DHCP
-          dhcp_timer <= 22'd2_500_000;    // set dhcp timer to one second
-          dhcp_seconds_timer <= 4'd0; // zero seconds have elapsed
-          state <= ST_DHCP_REQUEST;
-        end
-      end
-      dhcp_timer <= dhcp_timer - 22'b1;          //no time out yet, count down
-    end
+
+	// Set Tx_reset (no sdr send) if network_state is True
+	assign network_state_dhcp = reg_network_state_dhcp;   // network_state is low when we have an IP address
+	assign network_state_fixedip = reg_network_state_fixedip;
+	reg reg_network_state_dhcp = 1'b1;           // this is used in network.v to hold code in reset when high
+	reg reg_network_state_fixedip = 1'b1;
+	reg [3:0] state = ST_START;
+	reg [21:0] dhcp_timer;
+	reg dhcp_tx_enable;
+	reg [17:0] dhcp_renew_timer;  // holds number of seconds before DHCP IP address must be renewed
+	reg [3:0] dhcp_seconds_timer;   // number of seconds since the DHCP request started
+
+
+
+	//reset all child modules
+	wire rx_reset, tx_reset;
+	sync sync_inst1(.clock(rx_clock), .sig_in(state <= ST_PHY_SETTLE), .sig_out(rx_reset));
+	sync sync_inst2(.clock(tx_clock), .sig_in(state <= ST_PHY_SETTLE), .sig_out(tx_reset));
+
+
+	always @(negedge clock_2_5MHz)
+		// if connection lost, wait until reconnects
+		if ((state > ST_PHY_CONNECT) && !phy_connected_int)
+			begin
+				reg_network_state_dhcp <= 1'b1;
+				reg_network_state_fixedip <= 1'b1;
+				state <= ST_PHY_CONNECT;
+			end
+		else
+			case (state)
+				// set eeprom read request
+				ST_START:
+					begin
+						speed_1gb_i <= 0;
+						state <= ST_PHY_INIT;
+					end
+
+				// set phy initialization request
+				ST_PHY_INIT:
+					state <= ST_PHY_CONNECT;
+
+				// clear phy initialization request
+				// wait for phy to initialize and connect
+				ST_PHY_CONNECT:
+					if (phy_connected_int)
+						begin
+							dhcp_timer <= (SIM==1) ? 22'h01 : 22'd2500000; //1 second
+							state <= ST_PHY_SETTLE;
+							speed_1gb_i <= phy_speed[1];
+						end
+
+				// wait for connection to settle
+				ST_PHY_SETTLE:
+					begin
+						// when network has settled, get ip address, if static IP assigned then use it else try DHCP
+						if (dhcp_timer == 0)
+							begin
+								if (eeprom_config[7] & ~eeprom_config[5])
+									begin
+										local_ip <= static_ip;
+										state <= ST_RUNNING;
+									end
+								else
+									begin
+										local_ip <= 32'h00_00_00_00;	// needs to be 0.0.0.0 for DHCP
+										dhcp_timer <= 22'd2_500_000;	// set dhcp timer to one second
+										dhcp_seconds_timer <= 4'd0;		// zero seconds have elapsed
+										state <= ST_DHCP_REQUEST;
+									end
+							end
+						dhcp_timer <= dhcp_timer - 22'b1;				// no time out yet, count down
+					end
 
     // send initial dhcp discover and request on power up
     ST_DHCP_REQUEST: begin
@@ -763,24 +801,28 @@ always @(posedge tx_clock) begin
 end
 
 
-rgmii_send #(.SIM(SIM)) rgmii_send_inst (
-  //in
-  .data     (rgmii_tx_data_in_pipe),
-  .tx_enable(rgmii_tx_enable_pipe ),
-  .active   (rgmii_tx_active      ),
-  .clock    (tx_clock             ),
-  .PHY_TX   (PHY_TX               ),
-  .PHY_TX_EN(PHY_TX_EN            )
-);
+	rgmii_send #(
+		.SIM(SIM)
+	) rgmii_send_inst(
+		.data(rgmii_tx_data_in_pipe),
+		.tx_enable(rgmii_tx_enable_pipe),
+		.active(rgmii_tx_active),
+		.clock(tx_clock),
+		.PHY_TX(PHY_TX),
+		.PHY_TX_EN(PHY_TX_EN)
+	);
 
-always @(negedge clock_2_5MHz) phy_connected <= phy_connected_int;
+	always @(negedge clock_2_5MHz)
+		phy_connected <= phy_connected_int;
 
-//-----------------------------------------------------------------------------
-//                              debug output
-//-----------------------------------------------------------------------------
-assign speed_1gb = speed_1gb_i; //phy_speed[1];
-assign network_speed = phy_speed;
-// {phy_connected,phy_speed[1],phy_speed[0], udp_rx_active, udp_rx_enable, rgmii_rx_active, rgmii_tx_active, mac_rx_active};
+
+	//-----------------------------------------------------------------------------
+	//                              debug output
+	//-----------------------------------------------------------------------------
+
+	assign speed_1gb = speed_1gb_i;		//phy_speed[1];
+	assign network_speed = phy_speed;
+//	{ phy_connected, phy_speed[1], phy_speed[0], udp_rx_active, udp_rx_enable, rgmii_rx_active, rgmii_tx_active, mac_rx_active };
 
 
 endmodule

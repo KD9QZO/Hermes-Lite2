@@ -1,38 +1,34 @@
+#
+# boards/hl2b5up/timing.sdc
+#
+
 
 set_time_format -unit ns -decimal_places 3
+
 
 ## Clocks in Eth TX Domain
 
 create_clock -name phy_clk125 -period 125.000MHz	[get_ports phy_clk125]
 
 create_generated_clock -source {hermeslite_core_i|ethpll_inst|altpll_component|auto_generated|pll1|inclk[0]} -duty_cycle 50.00 -name clock_125MHz {hermeslite_core_i|ethpll_inst|altpll_component|auto_generated|pll1|clk[0]}
-
 create_generated_clock -source {hermeslite_core_i|ethpll_inst|altpll_component|auto_generated|pll1|inclk[0]} -phase 135.00 -duty_cycle 50.00 -name clock_90_125MHz {hermeslite_core_i|ethpll_inst|altpll_component|auto_generated|pll1|clk[1]}
-
 create_generated_clock -source {hermeslite_core_i|ethpll_inst|altpll_component|auto_generated|pll1|inclk[0]} -divide_by 50 -duty_cycle 50.00 -name clock_2_5MHz {hermeslite_core_i|ethpll_inst|altpll_component|auto_generated|pll1|clk[2]}
-
 create_generated_clock -source {hermeslite_core_i|ethpll_inst|altpll_component|auto_generated|pll1|inclk[0]} -phase 99.0 -divide_by 5 -duty_cycle 50.00 -name clock_25MHz {hermeslite_core_i|ethpll_inst|altpll_component|auto_generated|pll1|clk[3]}
-
 create_generated_clock -source {hermeslite_core_i|ethpll_inst|altpll_component|auto_generated|pll1|inclk[0]} -divide_by 10 -duty_cycle 50.00 -name clock_12p5MHz {hermeslite_core_i|ethpll_inst|altpll_component|auto_generated|pll1|clk[4]}
-
 create_generated_clock -source {hermeslite_core_i|ethpll_inst|altpll_component|auto_generated|pll1|clk[1]} -name clock_ethtxextfast {hermeslite_core_i|ethtxext_clkmux_i|auto_generated|clkctrl1|outclk}
-
 create_generated_clock -source {hermeslite_core_i|ethpll_inst|altpll_component|auto_generated|pll1|clk[3]} -name clock_ethtxextslow {hermeslite_core_i|ethtxext_clkmux_i|auto_generated|clkctrl1|outclk} -add
 
 set_clock_groups -exclusive -group {clock_ethtxextslow} -group {clock_ethtxextfast}
 
 create_generated_clock -source {hermeslite_core_i|ethpll_inst|altpll_component|auto_generated|pll1|clk[0]} -name clock_ethtxintfast {hermeslite_core_i|ethtxint_clkmux_i|auto_generated|clkctrl1|outclk}
-
 create_generated_clock -source {hermeslite_core_i|ethpll_inst|altpll_component|auto_generated|pll1|clk[4]} -name clock_ethtxintslow {hermeslite_core_i|ethtxint_clkmux_i|auto_generated|clkctrl1|outclk} -add
 
 set_clock_groups -exclusive -group {clock_ethtxintslow} -group {clock_ethtxintfast}
 
 create_generated_clock -name clock_txoutputfast -master_clock [get_clocks {clock_ethtxextfast}] -source [get_pins {hermeslite_core_i|ethtxext_clkmux_i|auto_generated|clkctrl1|outclk}] [get_ports {phy_tx_clk}]
-
 create_generated_clock -name clock_txoutputslow -master_clock [get_clocks {clock_ethtxextslow}] -source [get_pins {hermeslite_core_i|ethtxext_clkmux_i|auto_generated|clkctrl1|outclk}] [get_ports {phy_tx_clk}] -add
 
 set_clock_groups -exclusive -group {clock_txoutputslow} -group {clock_txoutputfast}
-
 
 
 ## Clocks in Eth RX Domain
@@ -56,11 +52,8 @@ create_clock -name virt_ad9866_rxclk_tx -period 153.6MHz
 create_clock -name virt_ad9866_rxclk_rx -period 153.6MHz
 
 create_generated_clock -source {hermeslite_core_i|ad9866pll_inst|altpll_component|auto_generated|pll1|inclk[0]} -duty_cycle 50.00 -name clock_76p8MHz {hermeslite_core_i|ad9866pll_inst|altpll_component|auto_generated|pll1|clk[0]}
-
 create_generated_clock -source {hermeslite_core_i|ad9866pll_inst|altpll_component|auto_generated|pll1|inclk[0]} -multiply_by 2 -duty_cycle 50.00 -name clock_153p6MHz {hermeslite_core_i|ad9866pll_inst|altpll_component|auto_generated|pll1|clk[1]}
-
 create_generated_clock -source {hermeslite_core_i|ad9866pll_inst|altpll_component|auto_generated|pll1|inclk[0]} -multiply_by 16 -divide_by 5 -duty_cycle 50.00 -name clock_245p76MHz {hermeslite_core_i|ad9866pll_inst|altpll_component|auto_generated|pll1|clk[2]}
-
 create_generated_clock -source {hermeslite_core_i|ad9866pll_inst|altpll_component|auto_generated|pll1|inclk[0]} -divide_by 1600 -duty_cycle 50.00 -name clock_48khz {hermeslite_core_i|ad9866pll_inst|altpll_component|auto_generated|pll1|clk[3]}
 
 
@@ -80,7 +73,6 @@ set_clock_groups -asynchronous -group { \
 	} -group { \
 		clock_153p6MHz rffe_ad9866_clk76p8 clock_76p8MHz clock_245p76MHz clock_48khz \
 	}
-
 
 
 ## Ethernet PHY TX per AN477, with PHY delay for TX disabled
@@ -117,7 +109,6 @@ set_false_path -rise_from [get_clocks {clock_ethtxintslow}] -rise_to [get_clocks
 
 set_false_path -from [get_clocks {clock_ethtxintfast}] -to [get_clocks {clock_txoutputslow}]
 set_false_path -from [get_clocks {clock_ethtxintslow}] -to [get_clocks {clock_txoutputfast}]
-
 
 
 ## Ethernet PHY RX per AN477, with PHY delay for RX enabled
@@ -160,12 +151,13 @@ set_false_path -rise_from  virt_phy_rx_clk_slow -rise_to clock_ethrxintslow -hol
 
 set_false_path -from [get_clocks {virt_phy_rx_clk_slow}] -to [get_clocks {clock_ethrxintfast}]
 
+
 ## Misc PHY
 
-#PHY PHY_MDIO Data in +/- 10nS setup and hold
+# PHY PHY_MDIO Data in +/- 10nS setup and hold
 set_input_delay  10  -clock clock_2_5MHz -reference_pin [get_ports phy_mdc] {phy_mdio}
 
-#PHY (2.5MHz)
+# PHY (2.5MHz)
 set_output_delay  10 -clock clock_2_5MHz -reference_pin [get_ports phy_mdc] {phy_mdio}
 
 set_max_delay -from clock_2_5MHz -to clock_ethtxintfast 22
@@ -180,7 +172,6 @@ set_false_path -to [get_ports {phy_mdc}]
 set_false_path -from [get_ports {phy_rst_n}]
 
 set_false_path -from [get_keepers {hermeslite_core_i|network:network_inst|phy_cfg:phy_cfg_inst|speed[1]}]
-
 
 
 ## IO
@@ -259,7 +250,6 @@ set_multicycle_path -from [get_keepers {hermeslite_core:hermeslite_core_i|networ
 set_multicycle_path -from [get_keepers {hermeslite_core:hermeslite_core_i|network:network_inst|udp_destination_ip_sync[*]}] -to [get_keepers {hermeslite_core:hermeslite_core_i|network:network_inst|ip_send:ip_send_inst|shift_reg[*]}] -setup -start 2
 set_multicycle_path -from [get_keepers {hermeslite_core:hermeslite_core_i|network:network_inst|udp_destination_ip_sync[*]}] -to [get_keepers {hermeslite_core:hermeslite_core_i|network:network_inst|ip_send:ip_send_inst|shift_reg[*]}] -hold -start 1
 
-
 set_multicycle_path -from [get_keepers {hermeslite_core:hermeslite_core_i|network:network_inst|run_destination_ip[*]}] -to [get_keepers {hermeslite_core:hermeslite_core_i|network:network_inst|ip_send:ip_send_inst|shift_reg[*]}] -setup -start 2
 set_multicycle_path -from [get_keepers {hermeslite_core:hermeslite_core_i|network:network_inst|run_destination_ip[*]}] -to [get_keepers {hermeslite_core:hermeslite_core_i|network:network_inst|ip_send:ip_send_inst|shift_reg[*]}] -hold -start 1
 
@@ -294,13 +284,10 @@ set_multicycle_path -from [get_keepers {hermeslite_core:hermeslite_core_i|usopen
 #set_multicycle_path -from {hermeslite_core:hermeslite_core_i|network:network_inst|icmp:icmp_inst|sending*} -to {hermeslite_core:hermeslite_core_i|network:network_inst|mac_send:mac_send_inst|shift_reg[*]} -hold -start 1
 
 
-
 ## Multicycle for frequency computation
 
-##set_multicycle_path 2 -from {hermeslite_core_i|radio_i|wbs_dat_i[*]} -to {hermeslite_core_i|radio_i|freqcompp[*][*]} -setup -end
-##set_multicycle_path 1 -from {hermeslite_core_i|radio_i|wbs_dat_i[*]} -to {hermeslite_core_i|radio_i|freqcompp[*][*]} -hold -end
-
-
+#set_multicycle_path 2 -from {hermeslite_core_i|radio_i|wbs_dat_i[*]} -to {hermeslite_core_i|radio_i|freqcompp[*][*]} -setup -end
+#set_multicycle_path 1 -from {hermeslite_core_i|radio_i|wbs_dat_i[*]} -to {hermeslite_core_i|radio_i|freqcompp[*][*]} -hold -end
 
 
 ## AD9866 RX Path
@@ -320,13 +307,11 @@ set_output_delay -add_delay -min -clock virt_ad9866_rxclk_tx -1.3 [get_ports {rf
 set_output_delay -add_delay -max -clock virt_ad9866_rxclk_tx 1.4 [get_ports {rffe_ad9866_pga5}]
 set_output_delay -add_delay -min -clock virt_ad9866_rxclk_tx -1.3 [get_ports {rffe_ad9866_pga5}]
 
-
 set_output_delay -add_delay -max -clock virt_ad9866_rxclk_tx 1.4 [get_ports {rffe_ad9866_tx[*]}]
 set_output_delay -add_delay -min -clock virt_ad9866_rxclk_tx -1.3 [get_ports {rffe_ad9866_tx[*]}]
 
+#set_max_delay -from {IF_Rx_ctrl_*} -to {freqcompp*} 15.9
 
-
-##set_max_delay -from {IF_Rx_ctrl_*} -to {freqcompp*} 15.9
 
 ## AD9866 Other IO
 
@@ -339,6 +324,7 @@ set_false_path -to [get_ports {rffe_rfsw_sel}]
 set_false_path -to [get_ports {rffe_ad9866_mode}]
 set_false_path -to [get_ports {rffe_ad9866_pga*}]
 
+
 ## Multicycle for FIR
 
 set_multicycle_path -from [get_clocks {clock_153p6MHz}] -to [get_clocks {clock_76p8MHz}] -setup -start 2
@@ -349,5 +335,3 @@ set_multicycle_path -from [get_clocks {clock_153p6MHz}] -to [get_clocks {clock_7
 
 set_multicycle_path -from {hermeslite_core:hermeslite_core_i|hl2link_app:hl2link_app_i|cmd_data[*]} -to {hermeslite_core:hermeslite_core_i|radio:radio_i|freqcompp[*][*]} -setup -end 2
 set_multicycle_path -from {hermeslite_core:hermeslite_core_i|hl2link_app:hl2link_app_i|cmd_data[*]} -to {hermeslite_core:hermeslite_core_i|radio:radio_i|freqcompp[*][*]} -hold -end 1
-
-

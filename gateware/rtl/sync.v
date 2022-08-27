@@ -25,20 +25,24 @@
 //-----------------------------------------------------------------------------
 // transfer signal to another clock domain
 //-----------------------------------------------------------------------------
-module sync (
-  input clock,
-  input sig_in,
-  output sig_out
+module sync(
+	clock,
+	sig_in,
+	sig_out
 );
 
-parameter DEPTH = 2;
+	parameter DEPTH = 2;
 
-(*preserve*) reg [DEPTH-1:0] sync_chain = {DEPTH{1'b0}};
+	input clock;
+	input sig_in;
+	output sig_out;
 
-always @(posedge clock)
-  sync_chain <= {sig_in, sync_chain[DEPTH-1:1]};
+	(*preserve*) reg [DEPTH-1:0] sync_chain = { DEPTH{ 1'b0 } };
 
-assign sig_out = sync_chain[0];
+	always @(posedge clock)
+		sync_chain <= { sig_in, sync_chain[DEPTH-1:1] };
+
+	assign sig_out = sync_chain[0];
 
 endmodule
 
@@ -46,20 +50,24 @@ endmodule
 //-----------------------------------------------------------------------------
 // transfer change as pulse to another domain
 //-----------------------------------------------------------------------------
-module sync_pulse (
-  input clock,
-  input sig_in,
-  output sig_out
+module sync_pulse(
+	clock,
+	sig_in,
+	sig_out
 );
 
-parameter DEPTH = 3;
+	parameter DEPTH = 3;
 
-(*preserve*) reg [DEPTH-1:0] sync_chain = {DEPTH{1'b0}};
+	input clock;
+	input sig_in;
+	output sig_out;
 
-always @(posedge clock)
-  sync_chain <= {sig_in, sync_chain[DEPTH-1:1]};
+	(*preserve*) reg [DEPTH-1:0] sync_chain = { DEPTH{ 1'b0 } };
 
-assign sig_out = sync_chain[0] ^ sync_chain[1];
+	always @(posedge clock)
+		sync_chain <= { sig_in, sync_chain[DEPTH-1:1] };
+
+	assign sig_out = sync_chain[0] ^ sync_chain[1];
 
 endmodule
 
@@ -67,40 +75,51 @@ endmodule
 //-----------------------------------------------------------------------------
 // transfer change as pulse to another domain
 //-----------------------------------------------------------------------------
-module sync_one (
-  input clock,
-  input sig_in,
-  output sig_out
+module sync_one(
+	clock,
+	sig_in,
+	sig_out
 );
 
-parameter DEPTH = 3;
+	parameter DEPTH = 3;
 
-(*preserve*) reg [DEPTH-1:0] sync_chain = {DEPTH{1'b0}};
+	input clock;
+	input sig_in;
+	output sig_out;
 
-always @(posedge clock)
-  sync_chain <= {sig_in, sync_chain[DEPTH-1:1]};
+	(*preserve*) reg [DEPTH-1:0] sync_chain = { DEPTH{ 1'b0 } };
 
-assign sig_out = ~sync_chain[0] & sync_chain[1];
+	always @(posedge clock)
+		sync_chain <= { sig_in, sync_chain[DEPTH-1:1] };
+
+	assign sig_out = ~sync_chain[0] & sync_chain[1];
 
 endmodule
 
 
 
 
-module sync_handshake (
-  input clk_indomain,
-  input clk_outdomain,
-  input sig_in,
-  output sig_out
+module sync_handshake(
+	clk_indomain,
+	clk_outdomain,
+	sig_in,
+	sig_out
 );
 
+	input clk_indomain;
+	input clk_outdomain;
+	input sig_in;
+	output sig_out;
 
-(*preserve*) reg indomain;
-(*preserve*) reg outdomain;
+	(*preserve*) reg indomain;
+	(*preserve*) reg outdomain;
 
-always @(posedge clk_indomain) indomain <= sig_in;
-always @(posedge clk_outdomain) outdomain <= indomain;
-assign sig_out = outdomain;
+	always @(posedge clk_indomain)
+		indomain <= sig_in;
 
+	always @(posedge clk_outdomain)
+		outdomain <= indomain;
+
+	assign sig_out = outdomain;
 
 endmodule

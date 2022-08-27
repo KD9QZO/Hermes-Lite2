@@ -1,26 +1,27 @@
 
 
-module finerom (
-  address,
-  clock,
-  q);
+module finerom(
+	address,
+	clock,
+	q
+);
 
-  parameter init_file = "missing.txt";
+	parameter init_file = "missing.txt";
 
-  input [8:0]  address;
-  input   clock;
-  output reg [8:0]  q;
+	input [8:0] address;
+	input clock;
+	output reg [8:0] q;
 
-  reg [8:0] rom[511:0];
+	reg [8:0] rom[511:0];
 
-  initial
-  begin
-    $readmemb(init_file, rom);
-  end
+	initial
+		begin
+			$readmemb(init_file, rom);
+		end
 
-  always @ (posedge clock)
-  begin
-    q <= rom[address];
-  end
+	always @(posedge clock)
+		begin
+			q <= rom[address];
+		end
 
 endmodule
