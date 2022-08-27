@@ -14,7 +14,16 @@
 *.tcl						eol=lf
 *.qsf						eol=lf
 *.qpf						eol=lf
+*.qdf						eol=lf
+*.qip						eol=lf
+*.mif						eol=lf
+*.hex						eol=lf
+*.sof						binary
 *.rbf						binary
+*.jic						binary
+*.jam						eol=lf
+*.svf						eol=lf
+*.cof						eol=lf diff=xml
 
 
 ## Text & Markup ##
